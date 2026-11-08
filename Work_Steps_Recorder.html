@@ -1,0 +1,706 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Simple Work Step Recorder</title>
+  <style>
+*{box-sizing:border-box}body{margin:0;background:#f3f5f7;color:#18232d;font:17px system-ui,-apple-system,Segoe UI,sans-serif}header{background:#17324d;color:white;padding:20px max(20px,calc((100% - 1100px)/2));display:flex;align-items:center;justify-content:space-between;gap:20px}h1,h2,p{margin-top:0}header p{margin-bottom:0;color:#dce6ee}#timer{font:700 32px ui-monospace,monospace;background:#0d2235;padding:10px 16px;border-radius:9px}main{max-width:1100px;margin:22px auto;padding:0 16px;display:grid;grid-template-columns:2fr 1fr;gap:18px}.card{background:#fff;border:1px solid #d8e0e6;border-radius:12px;padding:20px;box-shadow:0 2px 8px #12202f12}.steps-panel{grid-column:1/-1}.top-actions,.entry-row,.screenshot-row,.footer-actions,.section-heading{display:flex;align-items:center;gap:10px}.entry-row input{flex:1;font:inherit;padding:14px;border:2px solid #7890a3;border-radius:8px}.entry-row input:focus{outline:3px solid #9fd0f4;border-color:#1769aa}button{border:0;border-radius:8px;padding:12px 16px;font:inherit;font-weight:750;background:#1769aa;color:white;cursor:pointer}button:disabled{opacity:.45;cursor:not-allowed}.secondary{background:#526979}.stop{background:#a13b3b}.small{padding:7px 10px;font-size:14px}.screenshot-row{margin-top:14px;flex-wrap:wrap}.notice{margin:16px 0 0;padding:12px;background:#fff5cf;border-left:5px solid #d39b00}.history-panel select{width:100%;min-height:280px;padding:8px;font:inherit;border:1px solid #98a9b6;border-radius:8px;margin-bottom:10px}.history-panel option{padding:8px}.section-heading{justify-content:space-between}.step{padding:14px 0;border-top:1px solid #e0e6ea}.step:first-child{border-top:0}.step-head{display:flex;justify-content:space-between;gap:15px}.meta{color:#60717f;font-size:14px}.thumb{display:block;max-width:260px;max-height:180px;margin-top:10px;border:1px solid #c5d0d8;border-radius:7px}#previewWrap{margin-top:12px}#preview{display:block;max-width:100%;max-height:340px;border:2px solid #88a0b2;border-radius:8px;margin-bottom:8px}.footer-actions{margin-top:18px;flex-wrap:wrap}.empty{color:#647481}@media(max-width:760px){main{grid-template-columns:1fr}.steps-panel{grid-column:auto}.entry-row{align-items:stretch;flex-direction:column}.entry-row button{width:100%}header{align-items:flex-start;flex-direction:column}.top-actions{flex-wrap:wrap}}
+
+/* Requested changes only: compact original header; move cards up/left; widen history. */
+header{padding:10px 16px;min-height:0}
+header h1{font-size:clamp(26px,2.6vw,38px);line-height:1.12;margin:0 0 4px}
+header p{margin:0;line-height:1.3}
+#timer{font-size:clamp(23px,2.1vw,32px);padding:7px 12px;flex-shrink:0}
+main{max-width:none;width:100%;margin:8px 0 0;padding:0 10px;grid-template-columns:minmax(0,1.45fr) minmax(0,1fr);gap:12px;align-items:start}
+.recorder,.history-panel{min-width:0}
+.entry-row input{min-width:0}
+.history-panel select{width:100%;min-width:0}
+@media(max-width:760px){header{flex-direction:row;align-items:center;flex-wrap:wrap}main{grid-template-columns:minmax(0,1fr);margin:8px 0 0;padding:0 10px}.steps-panel{grid-column:auto}}
+/* Hover preview positioned by the original selection list; no change to its controls. */
+.answer-hover-preview{position:fixed;z-index:9999;max-width:min(650px,calc(100vw - 24px));padding:10px 12px;background:#18232d;color:white;border-radius:7px;box-shadow:0 4px 14px #12202f55;font:15px system-ui,-apple-system,Segoe UI,sans-serif;white-space:pre-wrap;overflow-wrap:anywhere;pointer-events:none}
+.answer-hover-preview[hidden]{display:none}
+/* Compact one-line header, tighter/leftmost cards, wider history with ellipsis rows. */
+header{padding:6px 10px;gap:12px}
+header>div:first-child{display:flex;align-items:baseline;flex-wrap:wrap;column-gap:14px;row-gap:0}
+header h1{font-size:clamp(20px,1.9vw,26px);margin:0;line-height:1.15}
+header p{font-size:14px;line-height:1.2}
+#timer{font-size:clamp(18px,1.6vw,22px);padding:4px 10px;border-radius:7px}
+main{margin:6px 0 0;padding:0 6px;gap:10px;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr)}
+.card{padding:14px}
+h2{margin-bottom:8px}
+.history-panel p{margin-bottom:8px}
+.history-panel select{min-height:240px}
+.history-panel option{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:6px 8px}
+.notice{margin-top:12px}
+@media(max-width:760px){main{grid-template-columns:minmax(0,1fr)}}
+/* Timer sits right after the title (where the subtitle was). */
+header{justify-content:flex-start;gap:16px}
+/* Step numbers; fixed-size hover popup that never reflows while moving. */
+.step-num{font-size:14px;font-weight:750;color:#1769aa;margin-bottom:2px}
+.answer-hover-preview{width:max-content;box-sizing:border-box}
+/* Screen recording reminder and controls. */
+.reminder{margin:0 0 12px;font-size:18px}
+.record-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid #e0e6ea}
+#recordStatus{font-weight:700}
+.rec-off{color:#60717f}
+.rec-on{color:#a13b3b}
+.rec-on::before{content:"";display:inline-block;width:11px;height:11px;margin-right:7px;border-radius:50%;background:#d11;animation:recblink 1s infinite}
+@keyframes recblink{50%{opacity:.2}}
+.mic-row{display:flex;align-items:center;gap:8px;font-size:14px;color:#37505f}
+.mic-row[hidden],.mic-msg[hidden]{display:none}
+.meter{width:140px;height:12px;background:#dfe6eb;border-radius:6px;overflow:hidden}
+.meter i{display:block;height:100%;width:0;background:#2e9e5b;transition:width .08s}
+.mic-msg{flex-basis:100%;padding:10px 12px;border-left:5px solid #d39b00;background:#fff5cf;font-size:16px}
+.mic-msg.bad{border-left-color:#a13b3b;background:#ffd9d9}
+/* Startup pop-up questions. */
+.app-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.reminder[hidden],.app-row [hidden]{display:none}
+.modal{position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;background:#0d223599}
+.modal[hidden]{display:none}
+.modal-box{background:#fff;border-radius:12px;padding:24px;width:min(520px,calc(100vw - 32px));box-shadow:0 8px 30px #0006}
+.modal-box h2{margin-bottom:8px}
+.modal-btns{display:flex;flex-direction:column;gap:10px;margin-top:16px}
+.modal-btns button{width:100%;text-align:left;padding:14px 16px}
+/* Audio source choice and live transcript. */
+.audio-row{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:8px}
+.audio-row label{display:flex;align-items:center;gap:6px;cursor:pointer}
+.audio-row input{width:18px;height:18px}
+.audio-row.locked{opacity:.55}
+.hint{margin-bottom:10px;padding:8px 12px;background:#e8f2fb;border-left:5px solid #1769aa;font-size:15px}
+.mic-msg.ok{border-left-color:#2e9e5b;background:#e3f5ea}
+.hint[hidden],.tx-box[hidden]{display:none}
+.tx-box{flex-basis:100%;max-height:150px;overflow:auto;padding:8px 12px;border:1px solid #c5d0d8;border-radius:8px;background:#f8fafb;font-size:15px}
+#txText .interim{color:#7a8a96}
+#txText .seg-time{color:#1769aa;font-weight:700;margin-right:6px}
+.spoken{margin-top:6px;padding:6px 10px;background:#f1f6fa;border-left:4px solid #7a9ab3;font-size:14px;color:#2b3f4e}
+/* Optional merge panel. */
+.merge-panel{margin:0 0 14px;padding:8px 12px;border:1px solid #c5d0d8;border-radius:8px;background:#f8fafb}
+.merge-panel summary{cursor:pointer;font-weight:700}
+.merge-body{margin-top:10px}
+.merge-file,.merge-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:8px 0}
+.merge-status{margin:0 0 6px;font-weight:600}
+/* Drag & drop zone: the whole merge panel accepts the two videos. */
+.merge-panel{border:2px dashed #9db3c4}
+.merge-panel.drag-over{border-color:#1769aa;background:#e8f2fb}
+.merge-panel .drop-tag{font-weight:400;font-size:14px;color:#526979;margin-left:6px}
+.drop-hint{margin:0 0 10px;padding:14px;text-align:center;border:2px dashed #9db3c4;border-radius:8px;color:#37505f;background:#fff}
+.merge-panel.drag-over .drop-hint{border-color:#1769aa;color:#0d3a63;font-weight:700}
+/* Stacked full-width layout: recorder, then previous answers, then steps. */
+main{grid-template-columns:minmax(0,1fr)}
+.recorder,.history-panel,.steps-panel{grid-column:1/-1}
+
+</style>
+</head>
+<body>
+  <header>
+    <h1>Work Step Recorder</h1>
+    <div id="timer">00:00:00</div>
+  </header>
+
+  <main>
+    <section class="recorder card">
+      <div class="app-row">
+        Application: <strong id="appName">not selected</strong>
+        <button id="changeApp" class="small secondary">Change</button>
+        <button id="resetCapturePrompt" class="small secondary">Turn screen capture prompts off</button>
+      </div>
+      <div class="notice reminder" id="reminder" role="note" hidden>
+        <strong>Reminder:</strong> Start the VistA screen recording <u>BEFORE</u> you start working. Click <em>Start recording</em>, choose the VistA window, allow the microphone, then start the timer.
+      </div>
+
+      <div class="audio-row" id="audioRow">
+        <strong>Audio source (pick one):</strong>
+        <label><input type="radio" name="audioSource" value="mic" checked> Microphone</label>
+        <label><input type="radio" name="audioSource" value="internal"> Internal sound (computer audio)</label>
+        <label><input type="radio" name="audioSource" value="both"> Both (microphone + internal sound together)</label>
+        <label class="tx-opt"><input type="checkbox" id="transcribeOn" checked> Transcribe speech</label>
+      </div>
+      <div id="audioHint" class="hint" hidden></div>
+
+      <div class="audio-row" id="screenRow">
+        <strong>Screen to record:</strong>
+        <label><input type="radio" name="screenChoice" value="any" checked> Choose in picker (any screen or window)</label>
+        <label><input type="radio" name="screenChoice" value="s1"> Screen 1</label>
+        <label><input type="radio" name="screenChoice" value="s2"> Screen 2</label>
+        <label><input type="radio" name="screenChoice" value="both"> Both screens</label>
+      </div>
+      <div id="screenHint" class="hint" hidden></div>
+
+      <div class="record-row">
+        <button id="startRecording">Start recording</button>
+        <button id="stopRecording" class="stop" disabled>Stop recording</button>
+        <button id="stopMic" class="secondary" disabled>Stop microphone</button>
+        <span id="recordStatus" class="rec-off">Not recording</span>
+        <div id="micRow" class="mic-row" hidden><span id="meterLabel">Mic level</span><div class="meter"><i id="micBar"></i></div></div>
+        <div id="micMsg" class="mic-msg" role="alert" hidden></div>
+        <div id="txMsg" class="mic-msg" hidden></div>
+        <div id="txBox" class="tx-box" hidden><strong>Live transcript</strong><div id="txText"></div></div>
+      </div>
+
+      <details id="mergePanel" class="merge-panel">
+        <summary>Merge two screen videos side by side (optional) <span class="drop-tag">— or drag &amp; drop the two videos here</span></summary>
+        <div class="merge-body">
+          <div class="drop-hint" id="dropHint">Drag and drop your two videos anywhere in this box (Screen 1 and Screen 2)</div>
+          <p id="mergeStatus" class="merge-status">Merging is optional. After a "Both screens" recording, the two videos appear here automatically. You can also choose two saved files.</p>
+          <div class="merge-file"><strong>Screen 1 video:</strong> <span id="mergeName1">none chosen</span>
+            <button id="mergePick1" class="small secondary">Choose file…</button><input type="file" id="mergeFile1" accept="video/*" hidden></div>
+          <div class="merge-file"><strong>Screen 2 video:</strong> <span id="mergeName2">none chosen</span>
+            <button id="mergePick2" class="small secondary">Choose file…</button><input type="file" id="mergeFile2" accept="video/*" hidden></div>
+          <div class="merge-actions">
+            <button id="mergeStart" disabled>Merge side by side</button>
+            <button id="mergeCancel" class="small stop" hidden>Cancel merge</button>
+          </div>
+          <p class="meta">The merge plays both videos in real time, so it takes as long as the recording. Keep this tab open and in front until it finishes. The new file is saved as a separate "-merged" video and your two original videos are not changed. Sound comes from the Screen 1 video.</p>
+        </div>
+      </details>
+
+      <div class="top-actions">
+        <button id="startTimer">Start timer</button>
+        <button id="stopTimer" class="stop" disabled>Stop timer</button>
+        <span id="timerStatus">Timer not started</span>
+      </div>
+
+      <h2>What did you do?</h2>
+      <div class="entry-row">
+        <input id="message" maxlength="250" autocomplete="off" placeholder="Type one short action...">
+        <button id="saveStep" disabled>Save step</button>
+      </div>
+
+      <div class="screenshot-row">
+        <button id="takeScreenshot" class="secondary" disabled>Take screenshot</button>
+        <button id="attachFile" class="secondary" disabled>Attach image</button>
+        <input id="imageFile" type="file" accept="image/*" hidden>
+        <span id="imageStatus">No image attached</span>
+      </div>
+      <div id="previewWrap" hidden>
+        <img id="preview" alt="Pending screenshot preview">
+        <button id="removeImage" class="small stop">Remove image</button>
+      </div>
+
+    </section>
+
+    <aside class="card history-panel">
+      <h2>Previous answers</h2>
+      <p>Click an answer to put it into the current box.</p>
+      <select id="previousAnswers" size="12" aria-label="Previous answers"></select>
+      <button id="useAnswer" class="secondary">Use selected answer</button>
+    </aside>
+
+    <section class="card steps-panel">
+      <div class="section-heading"><h2>Recorded steps</h2><strong id="stepCount">0 steps</strong></div>
+      <div id="steps"></div>
+      <div class="footer-actions">
+        <button id="exportSummary" class="secondary">Export summary</button>
+        <button id="exportBackup" class="secondary">Backup data</button>
+        <button id="clearAll" class="stop">Delete all</button>
+      </div>
+    </section>
+  </main>
+  <div id="modal" class="modal" hidden>
+    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <h2 id="modalTitle"></h2>
+      <p id="modalText"></p>
+      <div id="modalBtns" class="modal-btns"></div>
+    </div>
+  </div>
+  <script>
+const DATA_KEY='simpleWorkSteps.v2';
+const $=id=>document.getElementById(id);
+let data=load();
+let timerStart=null, tick=null, pendingImage=null;
+
+function load(){try{return JSON.parse(localStorage.getItem(DATA_KEY))||{steps:[],answers:[]}}catch{return {steps:[],answers:[]}}}
+function save(){localStorage.setItem(DATA_KEY,JSON.stringify(data))}
+function escapeHtml(s=''){return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function elapsed(ms){const sec=Math.max(0,Math.floor(ms/1000));return [Math.floor(sec/3600),Math.floor(sec%3600/60),sec%60].map(n=>String(n).padStart(2,'0')).join(':')}
+function updateTimer(){if(timerStart)$('timer').textContent=elapsed(Date.now()-timerStart)}
+function setEnabled(on){$('message').disabled=!on;$('saveStep').disabled=!on;$('takeScreenshot').disabled=!on;$('attachFile').disabled=!on;$('stopTimer').disabled=!on;$('startTimer').disabled=on}
+
+// ---- Screen recording (one shared stream used for video AND screenshots) ----
+let recStream=null, micStream=null, recNote='', recorder=null, recChunks=[], recStart=null, recVideo=null, recFileName=null, recTick=null;
+function stamp(){const d=new Date(),p=n=>String(n).padStart(2,'0');return `${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`}
+function isRecording(){return !!(recorder&&recorder.state==='recording')}
+// File naming: yyyy-mm-dd_<Vista|PAR_Client>_...  (based on the application selected in the startup pop-up)
+function dateStr(){const d=new Date(),p=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`}
+function appTag(){return currentApp==='VistA'?'Vista':'PAR_Client'}
+const MP4_FIRST=['video/mp4;codecs=avc1.42E01E,mp4a.40.2','video/mp4;codecs=avc1,opus','video/mp4','video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'];
+const pickMime=list=>list.find(m=>MediaRecorder.isTypeSupported(m));
+const extFor=m=>m&&m.startsWith('video/mp4')?'mp4':'webm';
+function setRecUi(on){
+  $('startRecording').disabled=on;$('stopRecording').disabled=!on;if(!on)$('stopMic').disabled=true;
+  $('recordStatus').className=on?'rec-on':'rec-off';
+  $('recordStatus').textContent=on?'Recording':'Not recording';
+  // The audio source can only be chosen before recording starts (mic OR internal sound, never both).
+  document.querySelectorAll('input[name=audioSource]').forEach(r=>r.disabled=on);
+  $('transcribeOn').disabled=on;$('audioRow').classList.toggle('locked',on);
+  document.querySelectorAll('input[name=screenChoice]').forEach(r=>r.disabled=on);$('screenRow').classList.toggle('locked',on);
+}
+// Which screen(s) to record. A web page cannot pick a monitor by itself, so for Screen 1 / Screen 2 / Both
+// the app asks you to choose that entire screen in the browser's picker and checks that you did.
+function screenChoice(){const r=document.querySelector('input[name=screenChoice]:checked');return r?r.value:'any'}
+const SCREEN_HINTS={
+  s1:'Screen 1: when the picker opens, select the ENTIRE SCREEN that is your Screen 1 (the main display).',
+  s2:'Screen 2: when the picker opens, select the ENTIRE SCREEN that is your Screen 2. Hint: Windows Settings > System > Display shows which monitor is 1 and which is 2.',
+  both:'Both screens: the picker opens twice. First select Screen 1, then Screen 2. Each screen is saved as its own video file (…_Screen1 and …_Screen2). Audio and the transcript go with the Screen 1 file.'
+};
+function updateScreenHint(){const h=$('screenHint'),c=screenChoice();h.hidden=c==='any';h.textContent=SCREEN_HINTS[c]||''}
+document.querySelectorAll('input[name=screenChoice]').forEach(r=>r.addEventListener('change',updateScreenHint));
+updateScreenHint();
+function askPick(title,msg){return new Promise(res=>showModal(title,msg,[{label:'Open the screen picker',fn:()=>res(true)},{label:'Cancel',cls:'secondary',fn:()=>res(false)}]))}
+// Ask for one ENTIRE screen. Rejects windows/tabs and a screen that was already picked.
+async function pickScreen(label,audio,usedLabels){
+  let note='';
+  for(let attempt=0;attempt<3;attempt++){
+    if(!(await askPick('Choose '+label,note+'In the next window, select the ENTIRE SCREEN for '+label+', then click Share.'+(audio?' Also turn on "Share system audio".':''))))return null;
+    let s;
+    try{s=await navigator.mediaDevices.getDisplayMedia({video:true,audio})}catch{return null}
+    const t=s.getVideoTracks()[0],surface=t.getSettings().displaySurface;
+    if(surface&&surface!=='monitor'){s.getTracks().forEach(x=>x.stop());note='You chose a window or tab. Please choose an ENTIRE SCREEN. ';continue}
+    if(usedLabels.includes(t.label)){s.getTracks().forEach(x=>x.stop());note='That is the same screen you already chose. Please choose the OTHER screen. ';continue}
+    return s;
+  }
+  return null;
+}
+let secStream=null, secVideo=null, secRecorder=null, secChunks=[], secFileName=null, recBase='', recFileLabel='', recMime='video/webm', recTxSuffix='';
+let mixCtx=null;
+function audioSource(){const r=document.querySelector('input[name=audioSource]:checked');return r?r.value:'mic'}
+const INTERNAL_HINT='Internal sound: when the share picker opens, choose the ENTIRE SCREEN tab and turn on "Share system audio" (Chrome/Edge only offer computer audio for the entire screen or a browser tab, not for a single window). Your microphone will not be recorded in this mode.';
+const BOTH_HINT=`Both: your microphone and the computer's internal sound are mixed into one audio track. When the share picker opens, choose the ENTIRE SCREEN tab and turn on "Share system audio", and allow the microphone. A headset is recommended so speaker sound is not picked up twice.`;
+function updateAudioHint(){const h=$('audioHint');const a=audioSource();h.hidden=a==='mic';h.textContent=a==='internal'?INTERNAL_HINT:a==='both'?BOTH_HINT:''}
+document.querySelectorAll('input[name=audioSource]').forEach(r=>r.addEventListener('change',updateAudioHint));
+updateAudioHint();
+function updateRecStatus(){if(isRecording())$('recordStatus').textContent='Recording '+elapsed(Date.now()-recStart)+recNote}
+
+// ---- Microphone status: level meter + clear messages ----
+let audioCtx=null, meterTimer=null, quietSince=0;
+const MIC_OFF_MSG='Microphone is NOT recording, so this video will have no sound. If you want to record sound, enable your microphone: allow microphone access for this page (lock icon in the address bar > Microphone > Allow) and make sure it is not blocked in Windows Settings > Privacy & security > Microphone. Then stop and restart the recording.';
+const INTERNAL_OFF_MSG='Internal sound is NOT being recorded, so this video will have no sound. To record computer audio, stop and restart the recording, choose the ENTIRE SCREEN tab in the share picker, and turn on "Share system audio". (Sharing a single window does not include computer audio.) Or switch the audio source to Microphone.';
+let activeSource='mic';
+const srcLabel=()=>activeSource==='internal'?'internal sound':activeSource==='both'?'microphone and internal sound':'microphone';
+const BOTH_OFF_MSG='No audio is being recorded (neither microphone nor internal sound), so this video will have no sound. Allow the microphone for this page and, to record computer audio, choose the ENTIRE SCREEN tab and turn on "Share system audio". Then stop and restart the recording.';
+function offMsg(){return activeSource==='internal'?INTERNAL_OFF_MSG:activeSource==='both'?BOTH_OFF_MSG:MIC_OFF_MSG}
+function setMicMsg(text,level){const m=$('micMsg');m.textContent=text||'';m.hidden=!text;m.className='mic-msg'+(level?' '+level:'')}
+function stopMeter(){
+  clearInterval(meterTimer);meterTimer=null;
+  if(audioCtx){audioCtx.close().catch(()=>{});audioCtx=null}
+  $('micRow').hidden=true;$('micBar').style.width='0';
+}
+function startMeter(stream){
+  const track=stream.getAudioTracks()[0];
+  const lost=()=>{if(isRecording()){$('micRow').hidden=true;recNote=' (audio lost)';setMicMsg('The '+srcLabel()+' stopped recording, so sound is no longer being captured. '+offMsg().replace(/^[^.]*\.\s*/,''),'bad')}};
+  track.addEventListener('ended',lost);track.addEventListener('mute',lost);
+  audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+  const analyser=audioCtx.createAnalyser();analyser.fftSize=1024;
+  audioCtx.createMediaStreamSource(new MediaStream([track])).connect(analyser); // not connected to speakers
+  const buf=new Uint8Array(analyser.fftSize);quietSince=Date.now();
+  $('meterLabel').textContent=activeSource==='internal'?'Internal sound level':activeSource==='both'?'Mic + internal level':'Mic level';
+  $('micRow').hidden=false;
+  meterTimer=setInterval(()=>{
+    analyser.getByteTimeDomainData(buf);
+    let peak=0;for(const v of buf)peak=Math.max(peak,Math.abs(v-128)/128);
+    $('micBar').style.width=Math.min(100,Math.round(peak*300))+'%';
+    if(peak>0.02){quietSince=Date.now();if($('micMsg').classList.contains('warn'))setMicMsg('')}
+    else if(Date.now()-quietSince>10000&&$('micMsg').hidden)setMicMsg(activeSource==='both'?'No sound detected from the microphone or internal sound for 10 seconds. This is normal if nothing is playing or being said; if you expect sound, check that the microphone is not muted, "Share system audio" was on, and the computer volume is not muted.':activeSource==='internal'?'No internal sound detected for 10 seconds. This is normal if nothing is playing; if you expect sound, check that "Share system audio" was on and that the computer volume is not muted.':'No sound detected from the microphone for 10 seconds. If you expect to be recorded, check that your microphone is not muted and that the correct input device is selected in Windows.','warn');
+  },100);
+}
+$('startRecording').onclick=async()=>{
+  activeSource=audioSource();
+  const sc=screenChoice(),wantAudio=activeSource==='internal'||activeSource==='both';
+  secStream=null;
+  if(sc==='any'){
+    try{recStream=await navigator.mediaDevices.getDisplayMedia({video:true,audio:wantAudio})}
+    catch(err){$('recordStatus').textContent='Recording canceled or unavailable';return}
+  }else if(sc==='s1'||sc==='s2'){
+    recStream=await pickScreen(sc==='s1'?'Screen 1':'Screen 2',wantAudio,[]);
+    if(!recStream){$('recordStatus').textContent='Recording canceled: no screen was selected';return}
+  }else{
+    recStream=await pickScreen('Screen 1',wantAudio,[]);
+    if(!recStream){$('recordStatus').textContent='Recording canceled: no screen was selected';return}
+    secStream=await pickScreen('Screen 2',false,[recStream.getVideoTracks()[0].label]);
+    if(!secStream){recStream.getTracks().forEach(t=>t.stop());recStream=null;$('recordStatus').textContent='Recording canceled: Screen 2 was not selected';return}
+  }
+  recBase=`vista-recording-${stamp()}`;
+  recTxSuffix=sc==='s1'||sc==='both'?'-screen1':sc==='s2'?'-screen2':'';
+  if(secStream){mergeSrc1=null;mergeSrc2=null;refreshMerge()}
+  const screenNote=sc==='both'?' · Screens 1+2':sc==='s1'?' · Screen 1':sc==='s2'?' · Screen 2':'';
+  recVideo=document.createElement('video');recVideo.muted=true;recVideo.srcObject=recStream;
+  try{await recVideo.play()}catch{}
+  if(secStream){secVideo=document.createElement('video');secVideo.muted=true;secVideo.srcObject=secStream;try{await secVideo.play()}catch{}}
+  // One audio source only: the microphone OR internal (computer) sound. Never played back, so no echo.
+  let micNote='';setMicMsg('');setTxMsg('');
+  let audioStream=null;
+  if(activeSource==='internal'){
+    if(recStream.getAudioTracks().length){audioStream=new MediaStream(recStream.getAudioTracks());startMeter(audioStream);micNote=' + internal sound'}
+    else{micNote=' (NO INTERNAL SOUND: video only)';setMicMsg(INTERNAL_OFF_MSG,'bad')}
+  }else if(activeSource==='both'){
+    // Microphone + internal sound mixed into ONE track. Only the recording hears the mix; it is never played to the speakers.
+    const dispTracks=recStream.getAudioTracks();let micTrack=null;
+    try{micStream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true},video:false});micTrack=micStream.getAudioTracks()[0]}catch(err){micStream=null}
+    const srcs=[];if(micTrack)srcs.push(micTrack);dispTracks.forEach(t=>srcs.push(t));
+    if(srcs.length){
+      mixCtx=new (window.AudioContext||window.webkitAudioContext)();mixCtx.resume().catch(()=>{});
+      const dest=mixCtx.createMediaStreamDestination();
+      srcs.forEach(t=>mixCtx.createMediaStreamSource(new MediaStream([t])).connect(dest));
+      audioStream=dest.stream;startMeter(audioStream);
+      const lostSrc=name=>()=>{if(isRecording())setMicMsg('The '+name+' stopped recording, so it is no longer in the video. The other audio source may still be recording.','bad')};
+      if(micTrack)micTrack.addEventListener('ended',lostSrc('microphone'));
+      dispTracks.forEach(t=>t.addEventListener('ended',lostSrc('internal sound')));
+    }
+    micNote=micTrack&&dispTracks.length?' + mic + internal sound':micTrack?' (mic only: NO INTERNAL SOUND)':dispTracks.length?' (internal sound only: NO MIC)':' (NO AUDIO: video only)';
+    if(!micTrack&&!dispTracks.length)setMicMsg(BOTH_OFF_MSG,'bad');
+    else if(!micTrack)setMicMsg('Microphone is NOT recording; only internal sound is being captured. Allow microphone access for this page (lock icon in the address bar > Microphone > Allow), then stop and restart the recording.','bad');
+    else if(!dispTracks.length)setMicMsg('Internal sound is NOT being recorded; only the microphone is being captured. Stop and restart the recording, choose the ENTIRE SCREEN tab, and turn on "Share system audio".','bad');
+  }else{
+    try{micStream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true},video:false});audioStream=micStream;startMeter(micStream);micNote=' + mic'}
+    catch(err){micStream=null;micNote=' (NO MIC: video only)';setMicMsg(MIC_OFF_MSG,'bad')}
+  }
+  const recordedStream=new MediaStream([...recStream.getVideoTracks(),...(audioStream?audioStream.getAudioTracks():[])]);
+  const mime=pickMime(MP4_FIRST),ext=extFor(mime);recMime=ext==='mp4'?'video/mp4':'video/webm';
+  recFileName=`${dateStr()}_${appTag()}_Video_Recording${secStream?'_Screen1':''}.${ext}`;
+  secFileName=secStream?`${dateStr()}_${appTag()}_Video_Recording_Screen2.${ext}`:null;
+  recFileLabel=secStream?recFileName+' + '+secFileName:recFileName;
+  recChunks=[];recorder=new MediaRecorder(recordedStream,mime?{mimeType:mime}:undefined);
+  if(secStream){
+    const secMime=pickMime(ext==='mp4'?['video/mp4;codecs=avc1.42E01E','video/mp4']:['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm']);
+    secChunks=[];secRecorder=new MediaRecorder(new MediaStream(secStream.getVideoTracks()),secMime?{mimeType:secMime}:undefined);
+    secRecorder.ondataavailable=e=>{if(e.data&&e.data.size)secChunks.push(e.data)};
+    secRecorder.onstop=()=>{
+      const blob=new Blob(secChunks,{type:recMime}),name=secFileName;
+      const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();
+      setTimeout(()=>URL.revokeObjectURL(a.href),5000);
+      mergeSrc2=new File([blob],name,{type:recMime});offerMerge();
+      secStream.getTracks().forEach(t=>t.stop());secVideo.srcObject=null;secStream=null;secVideo=null;secRecorder=null;secChunks=[];
+    };
+    // If either screen is un-shared from the browser bar, stop and save everything.
+    secStream.getVideoTracks()[0].addEventListener('ended',()=>{if(isRecording())recorder.stop()});
+  }
+  recorder.ondataavailable=e=>{if(e.data&&e.data.size)recChunks.push(e.data)};
+  recorder.onstop=()=>{
+    clearInterval(recTick);stopMeter();if(mixCtx){mixCtx.close().catch(()=>{});mixCtx=null}setMicMsg('');stopTranscription();
+    const wasBoth=!!secRecorder;
+    if(secRecorder&&secRecorder.state!=='inactive')secRecorder.stop();
+    const savedName=recFileName,savedBase=recBase,savedLabel=recFileLabel,savedSuffix=recTxSuffix;
+    // Give the recognizer a moment to deliver its final words, then save the transcript next to the video.
+    setTimeout(()=>{if(txSegs.length){download(savedBase.replace('recording','transcript')+savedSuffix+'.txt','text/plain',transcriptText());setTxMsg('Transcript saved to Downloads.','ok')}},1200);
+    const blob=new Blob(recChunks,{type:recMime});
+    if(wasBoth){mergeExpectMs=Date.now()-recStart;mergeSrc1=new File([blob],savedName,{type:recMime});offerMerge()}
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=savedName;a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href),5000);
+    recStream.getTracks().forEach(t=>t.stop());if(micStream)micStream.getTracks().forEach(t=>t.stop());micStream=null;recVideo.srcObject=null;
+    recStream=null;recVideo=null;recChunks=[];setRecUi(false);
+    if(timerStart)stopTimerCore(); // recording ended: also stop the timer, same duties as the Stop timer button
+    $('recordStatus').textContent='Saved '+savedLabel+' to Downloads';
+  };
+  // If the user clicks the browser's "Stop sharing" button, finish and save the video.
+  recStream.getVideoTracks()[0].addEventListener('ended',()=>{if(isRecording())recorder.stop()});
+  recStart=Date.now();recNote=micNote+screenNote;recorder.start(1000);if(secRecorder)secRecorder.start(1000);setRecUi(true);
+  $('stopMic').disabled=!micStream; // offered whenever the external microphone is part of the recording
+  if(!timerStart)startTimerCore(); // recording started: start the timer automatically (Start timer button is then grayed out)
+  startTranscription(audioStream?audioStream.getAudioTracks()[0]:null,activeSource);
+  recTick=setInterval(updateRecStatus,500);
+};
+// ---- Optional: merge two screen videos side by side (never automatic) ----
+let mergeSrc1=null, mergeSrc2=null, mergeBusy=false, mergeAbort=false, mergeExpectMs=0;
+function refreshMerge(){
+  $('mergeName1').textContent=mergeSrc1?mergeSrc1.name:'none chosen';
+  $('mergeName2').textContent=mergeSrc2?mergeSrc2.name:'none chosen';
+  $('mergeStart').disabled=!(mergeSrc1&&mergeSrc2)||mergeBusy||isRecording();
+}
+function offerMerge(){ // called as each screen's file finishes; opens the panel once both are ready
+  refreshMerge();
+  if(mergeSrc1&&mergeSrc2){$('mergePanel').open=true;$('mergeStatus').textContent='Both screens were saved. Merging them into one video is optional: use the button below, or ignore this.'}
+}
+[1,2].forEach(n=>{
+  $('mergePick'+n).onclick=()=>$('mergeFile'+n).click();
+  $('mergeFile'+n).onchange=e=>{const f=e.target.files[0];if(f){if(n===1)mergeSrc1=f;else mergeSrc2=f;refreshMerge()}e.target.value=''};
+});
+$('mergeCancel').onclick=()=>{mergeAbort=true};
+// Drag & drop: drop the two videos anywhere on the merge panel (same result as using "Choose file…").
+(()=>{
+  const panel=$('mergePanel');let depth=0;
+  const hasFiles=e=>!!(e.dataTransfer&&[...(e.dataTransfer.types||[])].includes('Files'));
+  const say=t=>{$('mergeStatus').textContent=t};
+  panel.addEventListener('dragenter',e=>{if(!hasFiles(e))return;e.preventDefault();depth++;panel.classList.add('drag-over')});
+  panel.addEventListener('dragover',e=>{if(!hasFiles(e))return;e.preventDefault();e.dataTransfer.dropEffect='copy'});
+  panel.addEventListener('dragleave',e=>{if(!hasFiles(e))return;depth=Math.max(0,depth-1);if(!depth)panel.classList.remove('drag-over')});
+  panel.addEventListener('drop',e=>{
+    if(!hasFiles(e))return;
+    e.preventDefault();depth=0;panel.classList.remove('drag-over');panel.open=true;
+    if(mergeBusy){say('A merge is in progress. Wait for it to finish (or cancel it) before dropping new files.');return}
+    const vids=[...e.dataTransfer.files].filter(f=>(f.type||'').startsWith('video/')||/\.(mp4|webm|mkv|mov)$/i.test(f.name));
+    if(!vids.length){say('Those files are not videos. Drop two video files (for example the Screen 1 and Screen 2 recordings).');return}
+    // File names containing "Screen1"/"Screen2" decide which slot a video goes to; otherwise the drop order does.
+    const hint=f=>/screen[\s_-]?1/i.test(f.name)?1:/screen[\s_-]?2/i.test(f.name)?2:0;
+    if(vids.length>=2){
+      let [a,b]=vids;if(hint(a)===2||hint(b)===1)[a,b]=[b,a];
+      mergeSrc1=a;mergeSrc2=b;
+    }else{
+      const f=vids[0],h=hint(f);
+      if(h===1)mergeSrc1=f;else if(h===2)mergeSrc2=f;else if(!mergeSrc1)mergeSrc1=f;else mergeSrc2=f;
+    }
+    refreshMerge();
+    say(mergeSrc1&&mergeSrc2?(vids.length>2?'More than two videos were dropped, so only the first two were used. ':'')+'Both videos are ready. Merging is optional: use the button below when you want to merge.':'One video added. Drop or choose the other one to enable merging.');
+  });
+})();
+$('mergeStart').onclick=async()=>{
+  if(!(mergeSrc1&&mergeSrc2)||mergeBusy)return;
+  mergeBusy=true;mergeAbort=false;$('mergeCancel').hidden=false;refreshMerge();
+  const u1=URL.createObjectURL(mergeSrc1),u2=URL.createObjectURL(mergeSrc2);
+  const v1=document.createElement('video'),v2=document.createElement('video');
+  v1.src=u1;v2.src=u2;v1.playsInline=v2.playsInline=true;v2.muted=true; // Screen 1 supplies the sound (not played through speakers)
+  let actx=null,timer=null,rec=null;
+  const status=t=>{$('mergeStatus').textContent=t};
+  const cleanup=()=>{clearInterval(timer);URL.revokeObjectURL(u1);URL.revokeObjectURL(u2);if(actx)actx.close().catch(()=>{});v1.removeAttribute('src');v2.removeAttribute('src');mergeBusy=false;$('mergeCancel').hidden=true;refreshMerge()};
+  try{
+    status('Reading the two videos…');
+    await Promise.all([v1,v2].map(v=>new Promise((res,rej)=>{v.onloadedmetadata=res;v.onerror=()=>rej(new Error('a video file could not be read'))})));
+    const w1=v1.videoWidth,w2=v2.videoWidth,h=Math.max(v1.videoHeight,v2.videoHeight);
+    const canvas=document.createElement('canvas');canvas.width=w1+w2;canvas.height=h;
+    const ctx=canvas.getContext('2d');
+    const out=canvas.captureStream(25);
+    actx=new (window.AudioContext||window.webkitAudioContext)();await actx.resume();
+    try{const dest=actx.createMediaStreamDestination();actx.createMediaElementSource(v1).connect(dest);dest.stream.getAudioTracks().forEach(t=>out.addTrack(t))}catch{}
+    const mime=pickMime(MP4_FIRST),mext=extFor(mime);
+    rec=new MediaRecorder(out,mime?{mimeType:mime}:undefined);const chunks=[];
+    rec.ondataavailable=e=>{if(e.data&&e.data.size)chunks.push(e.data)};
+    const stopped=new Promise(res=>{rec.onstop=res});
+    const t0=Date.now();rec.start(1000);
+    timer=setInterval(()=>{
+      ctx.fillStyle='#000';ctx.fillRect(0,0,canvas.width,h);ctx.drawImage(v1,0,0);ctx.drawImage(v2,w1,0);
+      const ms=Date.now()-t0,pct=mergeExpectMs>0?Math.min(99,Math.round(ms/mergeExpectMs*100))+'% · ':'';
+      status('Merging… '+pct+elapsed(ms)+(document.hidden?' (keep this tab in front!)':''));
+      if(mergeAbort||(v1.ended&&v2.ended))rec.stop();
+    },40);
+    await Promise.all([v1.play(),v2.play()]);
+    await stopped;
+    if(mergeAbort){status('Merge canceled. Your two original videos are unchanged.')}
+    else{
+      const base=(mergeSrc1.name||'').replace(/\.[^.]+$/,'');
+      const name=(base.includes('_Screen1')?base.replace('_Screen1','_Merged'):base.includes('-screen1')?base.replace('-screen1','-merged'):dateStr()+'_'+appTag()+'_Video_Recording_Merged')+'.mp4';
+      const mt=mext==='mp4'?'video/mp4':'video/webm';download(name,mt,new Blob(chunks,{type:mt}));
+      status('Saved '+name+' to Downloads.');
+    }
+  }catch(err){try{rec&&rec.state!=='inactive'&&rec.stop()}catch{}status('Merge failed: '+(err&&err.message||err)+'. Your two original videos are unchanged.')}
+  finally{cleanup()}
+};
+refreshMerge();
+
+// ---- Speech transcription (timestamped to the video; prefers on-device recognition) ----
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+let sr=null, srWanted=false, txSegs=[], txInterim='', txStartByIdx={}, lastStepMs=0, txLocal=false, txSource='mic';
+function setTxMsg(text,level){const m=$('txMsg');m.textContent=text||'';m.hidden=!text;m.className='mic-msg'+(level?' '+level:'')}
+function renderTx(){
+  const box=$('txBox');box.hidden=!srWanted&&!txSegs.length;
+  $('txText').innerHTML=txSegs.map(s=>`<div><span class="seg-time">[${elapsed(s.ms)}]</span>${escapeHtml(s.text)}</div>`).join('')+(txInterim?`<div class="interim">${escapeHtml(txInterim)}</div>`:'');
+  box.scrollTop=box.scrollHeight;
+}
+async function startTranscription(track,source){
+  txSegs=[];txInterim='';txStartByIdx={};lastStepMs=0;txSource=source;srWanted=false;renderTx();
+  if(!$('transcribeOn').checked)return;
+  if(!SR){setTxMsg('Transcription is not available in this browser. Use Microsoft Edge or Google Chrome. The recording itself is not affected.','warn');return}
+  if(!track){setTxMsg('No audio is being recorded, so there is nothing to transcribe.','warn');return}
+  if(source==='internal'&&!('processLocally' in SR.prototype)){setTxMsg('This browser cannot transcribe internal sound (it can only listen to the microphone). The internal sound is still recorded in the video. Update Chrome/Edge to the latest version to enable this.','warn');return}
+  // Prefer on-device recognition so audio stays on this computer.
+  let local=false;
+  try{
+    if(typeof SR.available==='function'){
+      const st=await SR.available({langs:['en-US'],processLocally:true});
+      if(st==='available')local=true;
+      else if(st==='downloadable'||st==='downloading'){setTxMsg('Downloading the on-device speech language pack (one time)...','warn');local=!!(await SR.install({langs:['en-US'],processLocally:true}))}
+    }
+  }catch{local=false}
+  // Online (cloud) transcription is NOT authorized: if on-device recognition is unavailable, transcription stays off and no audio is sent anywhere.
+  if(!local){
+    setTxMsg('Transcription is unavailable: this browser has no on-device speech recognition, and online transcription is not allowed. The recording continues without a transcript; no audio is sent online.','warn');return;
+  }
+  if(!isRecording())return;
+  txLocal=local;sr=new SR();sr.lang='en-US';sr.continuous=true;sr.interimResults=true;
+  if(local&&'processLocally' in sr)sr.processLocally=true;
+  sr.onresult=e=>{
+    const nowMs=Date.now()-recStart;txInterim='';
+    for(let i=e.resultIndex;i<e.results.length;i++){
+      const r=e.results[i],text=r[0].transcript.trim();
+      if(txStartByIdx[i]==null)txStartByIdx[i]=nowMs;
+      if(r.isFinal){if(text)txSegs.push({ms:txStartByIdx[i],endMs:nowMs,text});delete txStartByIdx[i]}
+      else txInterim+=text+' ';
+    }
+    renderTx();
+  };
+  sr.onerror=e=>{
+    if(e.error==='no-speech'||e.error==='aborted')return;
+    srWanted=false;
+    const why={'not-allowed':'Speech recognition was blocked. Allow the microphone for this page.','service-not-allowed':'Speech recognition was blocked by the browser or your organization.','network':'Speech recognition could not reach its online service.','language-not-supported':'English speech recognition is not installed for on-device use.'}[e.error]||('Speech recognition stopped ('+e.error+').');
+    setTxMsg(why+' The recording continues without further transcription.','bad');
+  };
+  sr.onend=()=>{if(srWanted&&isRecording()){txStartByIdx={};setTimeout(beginSr,200)}}; // browsers end sessions after silence; restart
+  function beginSr(){
+    if(!srWanted||!sr)return;
+    try{('processLocally' in sr)?sr.start(track):sr.start()}
+    catch(err){
+      if(source==='internal'){srWanted=false;setTxMsg('This browser cannot transcribe internal sound. The recording continues.','warn');return}
+      try{sr.start()}catch{}
+    }
+  }
+  srWanted=true;beginSr();renderTx();
+  setTxMsg(local?'Transcription is on (processed on this computer; audio is not sent online).':'Transcription is on (using the browser’s online speech service).','ok');
+}
+function stopTranscription(){srWanted=false;try{sr&&sr.stop()}catch{}}
+function transcriptText(){
+  return ['# Transcript of '+recFileName,'Application: '+(currentApp||'unknown'),'Audio source: '+(txSource==='internal'?'Internal sound':txSource==='both'?'Microphone + internal sound':'Microphone'),'Recognition: '+(txLocal?'on this computer':'online browser speech service'),'Times are offsets into the video (hh:mm:ss).','',...txSegs.map(s=>`[${elapsed(s.ms)}] ${s.text}`)].join('\n');
+}
+$('stopRecording').onclick=()=>{if(isRecording())recorder.stop()};
+// Stop recording the external microphone only: screen recording, timer, screenshots, steps, transcription and internal sound keep running.
+$('stopMic').onclick=()=>{
+  if(!isRecording()||!micStream)return;
+  micStream.getAudioTracks().forEach(t=>{t.enabled=false}); // silence from here on; everything else keeps going
+  if(activeSource==='both'){recNote=recNote.replace(' + mic + internal sound',' + internal sound (mic stopped)');setMicMsg('Microphone recording was stopped by you. Internal sound and everything else are still recording.','warn')}
+  else{stopMeter();recNote=recNote.replace(' + mic',' (mic stopped)');setMicMsg('Microphone recording was stopped by you. Everything else (screen recording, timer, screenshots, steps) is still running, and the rest of the video will have no microphone sound.','warn')}
+  $('stopMic').disabled=true;
+};
+window.addEventListener('beforeunload',e=>{if(isRecording()||mergeBusy){e.preventDefault();e.returnValue=''}});
+
+$('startTimer').onclick=()=>{
+  if(currentApp==='VistA'&&!isRecording()&&!captureSuppressed()&&captureAnswer!=='yes'&&!confirm('The VistA screen recording is not running.\n\nPress Cancel, click "Start recording" first, then start the timer.\nPress OK to start the timer without recording.'))return;
+  startTimerCore()};
+function startTimerCore(){timerStart=Date.now();tick=setInterval(updateTimer,500);setEnabled(true);$('timerStatus').textContent='Timer running';$('message').focus()}
+function stopTimerCore(){clearInterval(tick);timerStart=null;setEnabled(false);$('timerStatus').textContent='Timer stopped';$('message').value='';clearPendingImage()}
+$('stopTimer').onclick=stopTimerCore;
+
+function clearPendingImage(){pendingImage=null;$('preview').src='';$('previewWrap').hidden=true;$('imageStatus').textContent='No image attached'}
+function imageToDataUrl(file){return new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=reject;r.readAsDataURL(file)})}
+
+$('attachFile').onclick=()=>$('imageFile').click();
+$('imageFile').onchange=async e=>{const file=e.target.files[0];if(!file)return;pendingImage=await imageToDataUrl(file);showPending('Image attached');e.target.value=''};
+$('removeImage').onclick=clearPendingImage;
+function showPending(label){$('preview').src=pendingImage;$('previewWrap').hidden=false;$('imageStatus').textContent=label}
+
+$('takeScreenshot').onclick=async()=>{
+  // While recording, grab a frame from the already-open stream (no picker, video not interrupted).
+  if(isRecording()&&recVideo&&recVideo.videoWidth){
+    const two=secVideo&&secVideo.videoWidth; // Both screens: place Screen 1 and Screen 2 side by side in one image
+    const canvas=document.createElement('canvas');
+    canvas.width=recVideo.videoWidth+(two?secVideo.videoWidth:0);canvas.height=Math.max(recVideo.videoHeight,two?secVideo.videoHeight:0);
+    const ctx=canvas.getContext('2d');ctx.drawImage(recVideo,0,0);if(two)ctx.drawImage(secVideo,recVideo.videoWidth,0);
+    pendingImage=canvas.toDataURL('image/jpeg',0.78);
+    showPending(two?'Screenshot of both screens ready for this step':'Screenshot ready for this step');return;
+  }
+  try{
+    const stream=await navigator.mediaDevices.getDisplayMedia({video:true,audio:false});
+    const video=document.createElement('video');video.srcObject=stream;await video.play();
+    await new Promise(r=>setTimeout(r,250));
+    const canvas=document.createElement('canvas');canvas.width=video.videoWidth;canvas.height=video.videoHeight;
+    canvas.getContext('2d').drawImage(video,0,0);pendingImage=canvas.toDataURL('image/jpeg',0.78);
+    stream.getTracks().forEach(t=>t.stop());video.srcObject=null;showPending('Screenshot ready for this step');
+  }catch(err){$('imageStatus').textContent='Screenshot canceled or unavailable'}
+};
+
+function saveStep(){
+  const text=$('message').value.trim();if(!text)return;
+  const normalized=text.toLocaleLowerCase();
+  if(!data.answers.some(a=>a.toLocaleLowerCase()===normalized))data.answers.push(text);
+  // Words spoken (transcribed) since the previous step, so each step carries its own narration.
+  let spoken=null;
+  if(isRecording()&&srWanted){const now=Date.now()-recStart;spoken=txSegs.filter(s=>s.endMs>lastStepMs&&s.endMs<=now).map(s=>s.text).join(' ')||null;lastStepMs=now}
+  data.steps.push({id:crypto.randomUUID(),text,time:new Date().toISOString(),elapsedMs:Date.now()-timerStart,image:pendingImage,videoOffsetMs:isRecording()?Date.now()-recStart:null,videoFile:isRecording()?recFileLabel:null,spoken});
+  save();$('message').value='';clearPendingImage();render();$('message').focus();
+}
+$('saveStep').onclick=saveStep;
+$('message').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();saveStep()}});
+$('useAnswer').onclick=()=>{const v=$('previousAnswers').value;if(v){$('message').value=v;$('message').focus()}};
+$('previousAnswers').ondblclick=$('useAnswer').onclick;
+
+function render(){
+  const select=$('previousAnswers');select.innerHTML='';
+  data.answers.forEach((a,i)=>{const o=document.createElement('option');o.value=a;o.textContent=`${i+1}. ${a}`;select.appendChild(o)});
+  $('stepCount').textContent=`${data.steps.length} step${data.steps.length===1?'':'s'}`;
+  $('steps').innerHTML=data.steps.length?[...data.steps].reverse().map((s,i)=>`<article class="step"><div class="step-head"><div><div class="step-num">Step ${data.steps.length-i}</div><strong>${escapeHtml(s.text)}</strong><div class="meta">${new Date(s.time).toLocaleString()} · timer ${elapsed(s.elapsedMs)}${s.videoOffsetMs!=null?` · video ${elapsed(s.videoOffsetMs)}`:''}</div></div><button class="small stop" data-delete="${s.id}">Delete</button></div>${s.spoken?`<div class="spoken"><strong>Spoken:</strong> ${escapeHtml(s.spoken)}</div>`:''}${s.image?`<img class="thumb" src="${s.image}" alt="Screenshot attached to this step">`:''}</article>`).join(''):'<p class="empty">No steps recorded yet.</p>';
+  document.querySelectorAll('[data-delete]').forEach(b=>b.onclick=()=>{data.steps=data.steps.filter(s=>s.id!==b.dataset.delete);save();render()});
+}
+function download(name,type,content){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([content],{type}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
+$('exportSummary').onclick=()=>{const lines=['# Work Steps','','Review this summary before sharing. Screenshots are not included in this text export.',''];data.steps.forEach((s,i)=>{lines.push(`${i+1}. ${s.text} (${new Date(s.time).toLocaleString()}, timer ${elapsed(s.elapsedMs)}${s.videoOffsetMs!=null?`, video ${elapsed(s.videoOffsetMs)} in ${s.videoFile}`:''})`);if(s.spoken)lines.push(`   - Spoken: ${s.spoken}`)});download(`${dateStr()}_${appTag()}_work-steps.md`,'text/markdown',lines.join('\n'))};
+$('exportBackup').onclick=()=>download(`${dateStr()}_${appTag()}_work-steps-backup.json`,'application/json',JSON.stringify(data,null,2));
+$('clearAll').onclick=()=>{if(confirm('Delete every recorded step, saved answer, and attached screenshot?')){data={steps:[],answers:[]};save();render()}};
+setEnabled(false);render();
+
+// ---- Startup questions: which application, and has screen capture been started? ----
+const SKIP_CAPTURE_KEY='simpleWorkSteps.skipCapturePrompt';
+localStorage.removeItem(SKIP_CAPTURE_KEY); // clear any old saved "off" setting: prompts are ON by default every time the page opens
+let currentApp=null, captureAnswer=null, nagTimer=null;
+const captureSuppressed=()=>sessionStorage.getItem(SKIP_CAPTURE_KEY)==='1';
+
+function showModal(title,text,buttons){
+  $('modalTitle').textContent=title;$('modalText').textContent=text;
+  const box=$('modalBtns');box.innerHTML='';
+  buttons.forEach(b=>{const el=document.createElement('button');el.textContent=b.label;if(b.cls)el.className=b.cls;el.onclick=()=>{$('modal').hidden=true;b.fn()};box.appendChild(el)});
+  $('modal').hidden=false;box.firstChild.focus();
+}
+function clearNag(){clearTimeout(nagTimer);nagTimer=null}
+function refreshAppUi(){
+  $('appName').textContent=currentApp||'not selected';
+  $('reminder').hidden=currentApp!=='VistA';
+  $('resetCapturePrompt').textContent=captureSuppressed()?'Turn screen capture prompts back on':'Turn screen capture prompts off';
+}
+function askApp(){
+  clearNag();stopAttention();
+  showModal('Which application are you using?','Choose the application you are working in.',[
+    {label:'VistA',fn:()=>{currentApp='VistA';captureAnswer=null;refreshAppUi();askCapture()}},
+    {label:'PAR Client',fn:()=>{currentApp='PAR Client';captureAnswer=null;clearNag();refreshAppUi()}}
+  ]);
+}
+function toggleCapturePrompts(){
+  if(captureSuppressed()){sessionStorage.removeItem(SKIP_CAPTURE_KEY);captureAnswer=null;refreshAppUi()}
+  else{sessionStorage.setItem(SKIP_CAPTURE_KEY,'1');captureAnswer='skip';clearNag();stopAttention();refreshAppUi()}
+}
+function askCapture(){
+  clearNag();
+  if(currentApp!=='VistA'||captureSuppressed()||captureAnswer==='yes')return;
+  if(!$('modal').hidden){nagTimer=setTimeout(askCapture,5000);return} // another pop-up is open; try again shortly
+  getAttention();
+  showModal('Did you start screen capture?','Start the VistA screen capture BEFORE you start working.',[
+    {label:'1) Don’t ask me again',fn:()=>{sessionStorage.setItem(SKIP_CAPTURE_KEY,'1');captureAnswer='skip';clearNag();stopAttention();refreshAppUi()}},
+    {label:'2) Yes',fn:()=>{captureAnswer='yes';clearNag();stopAttention()}},
+    {label:'3) No',cls:'stop',fn:()=>{captureAnswer='no';stopAttention();nagTimer=setTimeout(askCapture,60000)}}
+  ]);
+}
+// If the app is in a background tab/window (e.g. you are working in VistA), beep and flash the tab title.
+let flashTimer=null;const baseTitle=document.title;
+function getAttention(){
+  try{const c=new (window.AudioContext||window.webkitAudioContext)(),o=c.createOscillator(),g=c.createGain();o.frequency.value=880;g.gain.value=0.15;o.connect(g);g.connect(c.destination);o.start();setTimeout(()=>{o.stop();c.close()},350)}catch{}
+  clearInterval(flashTimer);let on=false;
+  flashTimer=setInterval(()=>{on=!on;document.title=on?'⚠ Did you start screen capture?':baseTitle},800);
+}
+function stopAttention(){clearInterval(flashTimer);flashTimer=null;document.title=baseTitle}
+$('changeApp').onclick=askApp;
+$('resetCapturePrompt').onclick=()=>{
+  const wasOff=captureSuppressed();toggleCapturePrompts();
+  if(wasOff)askCapture();
+};
+refreshAppUi();askApp();
+
+// Show full saved answer when the pointer is over a row of the list.
+(()=>{
+ const list=$('previousAnswers');
+ const tip=document.createElement('div');tip.className='answer-hover-preview';tip.hidden=true;tip.setAttribute('role','tooltip');document.body.appendChild(tip);
+ const hide=()=>{tip.hidden=true};
+ function optionAt(event){
+  if(event.target&&event.target.tagName==='OPTION')return event.target;
+  const rect=list.getBoundingClientRect();
+  const y=event.clientY-rect.top-list.clientTop+list.scrollTop;
+  return [...list.options].find(o=>y>=o.offsetTop&&y<o.offsetTop+o.offsetHeight)||null;
+ }
+ list.addEventListener('mousemove',event=>{
+  const opt=optionAt(event);
+  if(!opt){hide();return}
+  if(tip.textContent!==opt.value)tip.textContent=opt.value;
+  tip.hidden=false;tip.style.left='0px';tip.style.top='0px';
+  const x=Math.min(event.clientX+14,innerWidth-tip.offsetWidth-8);
+  const top=Math.min(event.clientY+18,innerHeight-tip.offsetHeight-8);
+  tip.style.left=Math.max(8,x)+'px';tip.style.top=Math.max(8,top)+'px';
+ });
+ list.addEventListener('mouseleave',hide);list.addEventListener('scroll',hide);list.addEventListener('blur',hide);
+})();
+
+</script>
+</body>
+</html>
