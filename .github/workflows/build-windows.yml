@@ -1,0 +1,44 @@
+name: Build Windows Keyboard Monitor
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Copy source with C++ extension
+        shell: pwsh
+        run: |
+          Copy-Item -LiteralPath 'KeyMonitor(Altered_v1).CPP.txt' -Destination 'KeyMonitor.cpp'
+
+      - name: Locate Visual Studio C++ tools
+        shell: pwsh
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vs = & $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $vs) { throw 'Visual Studio C++ compiler not found.' }
+          "VS_PATH=$vs" >> $env:GITHUB_ENV
+
+      - name: Compile Windows x64 executable
+        shell: cmd
+        run: |
+          call "%VS_PATH%\VC\Auxiliary\Build\vcvarsall.bat" x64
+          if errorlevel 1 exit /b 1
+          cl /nologo /std:c++17 /EHsc /W3 /Fe:KeyMonitor.exe KeyMonitor.cpp user32.lib shell32.lib
+          if errorlevel 1 exit /b 1
+
+      - name: Upload Windows executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: KeyMonitor-Windows-x64
+          path: KeyMonitor.exe
+          if-no-files-found: error
