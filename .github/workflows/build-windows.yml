@@ -33,7 +33,7 @@ jobs:
         run: |
           call "%VS_PATH%\VC\Auxiliary\Build\vcvarsall.bat" x64
           if errorlevel 1 exit /b 1
-          cl /nologo /std:c++17 /EHsc /W3 /Fe:KeyMonitor.exe KeyMonitor.cpp user32.lib shell32.lib
+          cl /nologo /std:c++17 /EHsc /W3 /Fe:KeyMonitor.exe KeyMonitor.cpp user32.lib shell32.lib advapi32.lib
           if errorlevel 1 exit /b 1
 
       - name: Upload Windows executable
