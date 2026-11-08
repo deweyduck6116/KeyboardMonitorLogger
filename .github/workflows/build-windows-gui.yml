@@ -30,7 +30,7 @@ jobs:
         run: |
           call "%VS_PATH%\VC\Auxiliary\Build\vcvarsall.bat" x64
           if errorlevel 1 exit /b 1
-          cl /DNOMINMAX /nologo /std:c++17 /EHsc /W3 /Fe:KeyMonitor_GUI.exe KeyMonitor_GUI.cpp user32.lib shell32.lib advapi32.lib comdlg32.lib /link /SUBSYSTEM:WINDOWS
+          cl /DNOMINMAX /nologo /std:c++17 /EHsc /W3 /Fe:KeyMonitor_GUI.exe KeyMonitor_GUI.cpp user32.lib shell32.lib advapi32.lib comdlg32.lib /link /SUBSYSTEM:WINDOWS gdi32.lib
           if errorlevel 1 exit /b 1
       - name: Upload Windows GUI executable
         uses: actions/upload-artifact@v4
